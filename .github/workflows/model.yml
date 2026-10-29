@@ -1,0 +1,25 @@
+# Model pipeline (Section 5.3): data validation -> training -> evaluation gate -> MLflow registration -> shadow.
+name: model
+on:
+  schedule: [ { cron: "30 2 * * *" } ]     # nightly; production runs the same job as a Kubernetes CronJob
+  workflow_dispatch:
+    inputs:
+      promote: { description: "skip shadow mode", type: boolean, default: false }
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - run: pip install -r requirements-dev.txt && pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: data validation (pandera schema on features)
+        run: python evaluation/validate_features.py --synthetic
+      - name: train + gate + M5 evaluation report on the labelled fault suite
+        run: python lap.py evaluate --history-days 7 --eval-days 2 --name ci-${{ github.run_id }}
+      - name: fail if the evaluation misses the M5 targets
+        run: python evaluation/check_targets.py evaluation/reports/ci-${{ github.run_id }}.json
+      - uses: actions/upload-artifact@v4
+        with: { name: evaluation-report, path: evaluation/reports/ci-${{ github.run_id }}.* }

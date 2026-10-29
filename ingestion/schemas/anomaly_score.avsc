@@ -1,0 +1,27 @@
+{
+  "type": "record",
+  "name": "AnomalyScore",
+  "namespace": "io.lap.anomalies",
+  "doc": "Scorer output on anomalies.scores (Section 4.5).",
+  "fields": [
+    {"name": "service", "type": "string"},
+    {"name": "window_start", "type": "double"},
+    {"name": "window_end", "type": "double"},
+    {"name": "score", "type": "double"},
+    {"name": "over_threshold", "type": "boolean"},
+    {"name": "is_anomalous", "type": "boolean"},
+    {"name": "tiers", "type": {"type": "record", "name": "Tiers", "fields": [
+      {"name": "stats", "type": ["null", "double"], "default": null},
+      {"name": "iforest", "type": ["null", "double"], "default": null},
+      {"name": "sequence", "type": ["null", "double"], "default": null},
+      {"name": "rule", "type": ["null", "string"], "default": null, "doc": "JSON of fired rules"}]}},
+    {"name": "top_drivers", "type": {"type": "array", "items": "string"}},
+    {"name": "explanation", "type": "string", "doc": "JSON: top_features, top_templates, samples, rule, sequence_violations"},
+    {"name": "dominant_template", "type": "string", "default": ""},
+    {"name": "model_version", "type": "string"},
+    {"name": "shadow", "type": ["null", "string"], "default": null},
+    {"name": "deploy_damped", "type": "boolean", "default": false},
+    {"name": "emitted_at", "type": "double"},
+    {"name": "e2e_latency_s", "type": ["null", "double"], "default": null}
+  ]
+}

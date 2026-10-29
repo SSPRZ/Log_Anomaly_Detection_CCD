@@ -1,0 +1,622 @@
+{
+  "name": "eval-seed21",
+  "config": {
+    "history_days": 7,
+    "eval_days": 3,
+    "per_kind": 3,
+    "seed": 21,
+    "base_rpm": 24,
+    "records_history": 1217667,
+    "records_eval": 560074
+  },
+  "model": {
+    "version": "v0001",
+    "train_metrics": {
+      "precision": 0.8405438813349815,
+      "recall": 0.8436724565756824,
+      "f1": 0.8421052631578948,
+      "tp": 680,
+      "fp": 129,
+      "fn": 126,
+      "alerts_per_service_day": 1.0,
+      "recall_volume_drop": 0.853448275862069,
+      "recall_host_drop": 0.5217391304347826,
+      "recall_volume_spike": 0.9565217391304348,
+      "recall_latency": 0.7304347826086957,
+      "recall_new_templates": 1.0,
+      "recall_error_spike": 1.0,
+      "recall_mix_shift": 0.8434782608695652,
+      "n_eval": 10886,
+      "n_pos": 806,
+      "train_seconds": 63.69166946411133,
+      "gate_passed": true
+    }
+  },
+  "platform": {
+    "incidents": 18,
+    "detected": 18,
+    "alerts": 36,
+    "tp_alerts": 32,
+    "fp_alerts": 4,
+    "precision": 0.8888888888888888,
+    "recall": 1.0,
+    "f1": 0.9411764705882353,
+    "detection_delay_s_median": 154.66948056221008,
+    "detection_delay_s_p95": 811.9011292099951,
+    "alerts_per_service_day": 2.4,
+    "false_alerts_per_service_day": 0.26666666666666666,
+    "duplicate_rate": 0.4375,
+    "per_kind": {
+      "bad_deploy": {
+        "incidents": 3,
+        "detected": 3,
+        "recall": 1.0,
+        "median_delay_s": 187.56496119499207
+      },
+      "crash_loop": {
+        "incidents": 3,
+        "detected": 3,
+        "recall": 1.0,
+        "median_delay_s": 225.83921217918396
+      },
+      "downstream_timeout": {
+        "incidents": 3,
+        "detected": 3,
+        "recall": 1.0,
+        "median_delay_s": 130.5966694355011
+      },
+      "memory_leak": {
+        "incidents": 3,
+        "detected": 3,
+        "recall": 1.0,
+        "median_delay_s": 802.1506643295288
+      },
+      "silent": {
+        "incidents": 3,
+        "detected": 3,
+        "recall": 1.0,
+        "median_delay_s": 119.24737977981567
+      },
+      "skip_step": {
+        "incidents": 3,
+        "detected": 3,
+        "recall": 1.0,
+        "median_delay_s": 147.63192462921143
+      }
+    }
+  },
+  "static_threshold_baseline": {
+    "incidents": 18,
+    "detected": 0,
+    "alerts": 0,
+    "tp_alerts": 0,
+    "fp_alerts": 0,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "detection_delay_s_median": null,
+    "detection_delay_s_p95": null,
+    "alerts_per_service_day": 0.0,
+    "false_alerts_per_service_day": 0.0,
+    "duplicate_rate": 0.0,
+    "per_kind": {
+      "bad_deploy": {
+        "incidents": 3,
+        "detected": 0,
+        "recall": 0.0,
+        "median_delay_s": null
+      },
+      "crash_loop": {
+        "incidents": 3,
+        "detected": 0,
+        "recall": 0.0,
+        "median_delay_s": null
+      },
+      "downstream_timeout": {
+        "incidents": 3,
+        "detected": 0,
+        "recall": 0.0,
+        "median_delay_s": null
+      },
+      "memory_leak": {
+        "incidents": 3,
+        "detected": 0,
+        "recall": 0.0,
+        "median_delay_s": null
+      },
+      "silent": {
+        "incidents": 3,
+        "detected": 0,
+        "recall": 0.0,
+        "median_delay_s": null
+      },
+      "skip_step": {
+        "incidents": 3,
+        "detected": 0,
+        "recall": 0.0,
+        "median_delay_s": null
+      }
+    }
+  },
+  "static_threshold_sensitive": {
+    "incidents": 18,
+    "detected": 8,
+    "alerts": 17,
+    "tp_alerts": 17,
+    "fp_alerts": 0,
+    "precision": 1.0,
+    "recall": 0.4444444444444444,
+    "f1": 0.6153846153846153,
+    "detection_delay_s_median": 396.9278972148895,
+    "detection_delay_s_p95": 4779.580082726476,
+    "alerts_per_service_day": 1.1333333333333333,
+    "false_alerts_per_service_day": 0.0,
+    "duplicate_rate": 0.5294117647058824,
+    "per_kind": {
+      "bad_deploy": {
+        "incidents": 3,
+        "detected": 3,
+        "recall": 1.0,
+        "median_delay_s": 510.23748803138733
+      },
+      "crash_loop": {
+        "incidents": 3,
+        "detected": 1,
+        "recall": 0.3333333333333333,
+        "median_delay_s": 308.24152398109436
+      },
+      "downstream_timeout": {
+        "incidents": 3,
+        "detected": 3,
+        "recall": 1.0,
+        "median_delay_s": 231.9375603199005
+      },
+      "memory_leak": {
+        "incidents": 3,
+        "detected": 1,
+        "recall": 0.3333333333333333,
+        "median_delay_s": 6717.153763532639
+      },
+      "silent": {
+        "incidents": 3,
+        "detected": 0,
+        "recall": 0.0,
+        "median_delay_s": null
+      },
+      "skip_step": {
+        "incidents": 3,
+        "detected": 0,
+        "recall": 0.0,
+        "median_delay_s": null
+      }
+    }
+  },
+  "latency": {
+    "e2e_p50_s": 25.70199990272522,
+    "e2e_p95_s": 40.8679000377655,
+    "windows_scored": 21600
+  },
+  "explanations": {
+    "anomalous_windows": 1289,
+    "with_top_drivers": 1217
+  },
+  "incidents": [
+    {
+      "id": "flt-56cdcadd",
+      "kind": "skip_step",
+      "service": "orders",
+      "start": "2026-09-14T00:21:25.721155+00:00",
+      "minutes": 30
+    },
+    {
+      "id": "flt-74e01cbc",
+      "kind": "downstream_timeout",
+      "service": "payments",
+      "start": "2026-09-14T06:28:54.385730+00:00",
+      "minutes": 20
+    },
+    {
+      "id": "flt-5c363491",
+      "kind": "memory_leak",
+      "service": "gateway",
+      "start": "2026-09-14T09:02:02.633336+00:00",
+      "minutes": 120
+    },
+    {
+      "id": "flt-1ba48865",
+      "kind": "bad_deploy",
+      "service": "orders",
+      "start": "2026-09-14T13:22:04.873605+00:00",
+      "minutes": 30
+    },
+    {
+      "id": "flt-3e2f9af2",
+      "kind": "skip_step",
+      "service": "orders",
+      "start": "2026-09-14T18:17:09.944524+00:00",
+      "minutes": 30
+    },
+    {
+      "id": "flt-6b3a5534",
+      "kind": "downstream_timeout",
+      "service": "payments",
+      "start": "2026-09-14T21:21:11.075330+00:00",
+      "minutes": 20
+    },
+    {
+      "id": "flt-c93dc5c0",
+      "kind": "silent",
+      "service": "notifications",
+      "start": "2026-09-15T02:57:26.040620+00:00",
+      "minutes": 20
+    },
+    {
+      "id": "flt-04aab047",
+      "kind": "bad_deploy",
+      "service": "orders",
+      "start": "2026-09-15T06:04:29.762512+00:00",
+      "minutes": 30
+    },
+    {
+      "id": "flt-2d47d27b",
+      "kind": "downstream_timeout",
+      "service": "payments",
+      "start": "2026-09-15T10:54:08.062440+00:00",
+      "minutes": 20
+    },
+    {
+      "id": "flt-37cf6bb5",
+      "kind": "silent",
+      "service": "notifications",
+      "start": "2026-09-15T12:31:51.209563+00:00",
+      "minutes": 20
+    },
+    {
+      "id": "flt-9c43ae82",
+      "kind": "memory_leak",
+      "service": "gateway",
+      "start": "2026-09-15T16:43:59.074173+00:00",
+      "minutes": 120
+    },
+    {
+      "id": "flt-3bc15661",
+      "kind": "crash_loop",
+      "service": "orders",
+      "start": "2026-09-15T21:49:21.631050+00:00",
+      "minutes": 15
+    },
+    {
+      "id": "flt-6efb080d",
+      "kind": "silent",
+      "service": "notifications",
+      "start": "2026-09-16T00:36:26.524691+00:00",
+      "minutes": 20
+    },
+    {
+      "id": "flt-94833941",
+      "kind": "crash_loop",
+      "service": "inventory",
+      "start": "2026-09-16T05:34:35.373788+00:00",
+      "minutes": 15
+    },
+    {
+      "id": "flt-4e41d731",
+      "kind": "bad_deploy",
+      "service": "inventory",
+      "start": "2026-09-16T08:22:18.771039+00:00",
+      "minutes": 30
+    },
+    {
+      "id": "flt-164dda58",
+      "kind": "skip_step",
+      "service": "orders",
+      "start": "2026-09-16T14:49:50.813075+00:00",
+      "minutes": 30
+    },
+    {
+      "id": "flt-b90ad09d",
+      "kind": "memory_leak",
+      "service": "gateway",
+      "start": "2026-09-16T17:17:02.846236+00:00",
+      "minutes": 120
+    },
+    {
+      "id": "flt-9ababb8e",
+      "kind": "crash_loop",
+      "service": "inventory",
+      "start": "2026-09-16T22:25:51.758476+00:00",
+      "minutes": 15
+    }
+  ],
+  "alerts": [
+    {
+      "alert_id": "al-20260916-0036-67ea",
+      "service": "inventory",
+      "severity": "P1",
+      "first_window": "2026-09-16T22:29:00+00:00",
+      "score": 0.965,
+      "incident_match": "flt-9ababb8e"
+    },
+    {
+      "alert_id": "al-20260916-0034-4a96",
+      "service": "gateway",
+      "severity": "P1",
+      "first_window": "2026-09-16T22:27:00+00:00",
+      "score": 0.916,
+      "incident_match": "flt-9ababb8e"
+    },
+    {
+      "alert_id": "al-20260916-0035-35df",
+      "service": "orders",
+      "severity": "P1",
+      "first_window": "2026-09-16T22:27:00+00:00",
+      "score": 0.922,
+      "incident_match": "flt-9ababb8e"
+    },
+    {
+      "alert_id": "al-20260916-0033-2610",
+      "service": "gateway",
+      "severity": "P2",
+      "first_window": "2026-09-16T17:30:00+00:00",
+      "score": 0.85,
+      "incident_match": "flt-b90ad09d"
+    },
+    {
+      "alert_id": "al-20260916-0032-409d",
+      "service": "payments",
+      "severity": "P2",
+      "first_window": "2026-09-16T14:51:00+00:00",
+      "score": 0.85,
+      "incident_match": "flt-164dda58"
+    },
+    {
+      "alert_id": "al-20260916-0030-1893",
+      "service": "gateway",
+      "severity": "P1",
+      "first_window": "2026-09-16T08:24:00+00:00",
+      "score": 0.908,
+      "incident_match": "flt-4e41d731"
+    },
+    {
+      "alert_id": "al-20260916-0031-f5ee",
+      "service": "inventory",
+      "severity": "P1",
+      "first_window": "2026-09-16T08:24:00+00:00",
+      "score": 0.96,
+      "incident_match": "flt-4e41d731"
+    },
+    {
+      "alert_id": "al-20260916-0029-609b",
+      "service": "orders",
+      "severity": "P1",
+      "first_window": "2026-09-16T05:42:00+00:00",
+      "score": 0.9,
+      "incident_match": "flt-94833941"
+    },
+    {
+      "alert_id": "al-20260916-0028-1ed2",
+      "service": "orders",
+      "severity": "P1",
+      "first_window": "2026-09-16T05:38:00+00:00",
+      "score": 0.912,
+      "incident_match": "flt-94833941"
+    },
+    {
+      "alert_id": "al-20260916-0026-2d66",
+      "service": "gateway",
+      "severity": "P1",
+      "first_window": "2026-09-16T05:37:00+00:00",
+      "score": 0.924,
+      "incident_match": "flt-94833941"
+    },
+    {
+      "alert_id": "al-20260916-0027-6dea",
+      "service": "inventory",
+      "severity": "P1",
+      "first_window": "2026-09-16T05:37:00+00:00",
+      "score": 0.974,
+      "incident_match": "flt-94833941"
+    },
+    {
+      "alert_id": "al-20260916-0025-4eeb",
+      "service": "notifications",
+      "severity": "P3",
+      "first_window": "2026-09-16T05:30:00+00:00",
+      "score": 0.655,
+      "incident_match": null
+    },
+    {
+      "alert_id": "al-20260916-0024-1f75",
+      "service": "notifications",
+      "severity": "P1",
+      "first_window": "2026-09-16T00:37:00+00:00",
+      "score": 0.9,
+      "incident_match": "flt-6efb080d"
+    },
+    {
+      "alert_id": "al-20260915-0023-d11d",
+      "service": "orders",
+      "severity": "P2",
+      "first_window": "2026-09-15T21:57:00+00:00",
+      "score": 0.846,
+      "incident_match": "flt-3bc15661"
+    },
+    {
+      "alert_id": "al-20260915-0022-c727",
+      "service": "gateway",
+      "severity": "P2",
+      "first_window": "2026-09-15T16:55:00+00:00",
+      "score": 0.85,
+      "incident_match": "flt-9c43ae82"
+    },
+    {
+      "alert_id": "al-20260915-0021-3ef9",
+      "service": "notifications",
+      "severity": "P1",
+      "first_window": "2026-09-15T12:33:00+00:00",
+      "score": 0.9,
+      "incident_match": "flt-37cf6bb5"
+    },
+    {
+      "alert_id": "al-20260915-0020-a995",
+      "service": "gateway",
+      "severity": "P2",
+      "first_window": "2026-09-15T10:55:00+00:00",
+      "score": 0.85,
+      "incident_match": "flt-2d47d27b"
+    },
+    {
+      "alert_id": "al-20260915-0018-429b",
+      "service": "orders",
+      "severity": "P2",
+      "first_window": "2026-09-15T10:55:00+00:00",
+      "score": 0.85,
+      "incident_match": "flt-2d47d27b"
+    },
+    {
+      "alert_id": "al-20260915-0019-0f05",
+      "service": "payments",
+      "severity": "P1",
+      "first_window": "2026-09-15T10:55:00+00:00",
+      "score": 0.994,
+      "incident_match": "flt-2d47d27b"
+    },
+    {
+      "alert_id": "al-20260915-0017-1389",
+      "service": "inventory",
+      "severity": "P2",
+      "first_window": "2026-09-15T06:11:00+00:00",
+      "score": 0.85,
+      "incident_match": null
+    },
+    {
+      "alert_id": "al-20260915-0016-8cc1",
+      "service": "orders",
+      "severity": "P1",
+      "first_window": "2026-09-15T06:11:00+00:00",
+      "score": 0.965,
+      "incident_match": "flt-04aab047"
+    },
+    {
+      "alert_id": "al-20260915-0015-49b7",
+      "service": "gateway",
+      "severity": "P1",
+      "first_window": "2026-09-15T06:10:00+00:00",
+      "score": 0.935,
+      "incident_match": "flt-04aab047"
+    },
+    {
+      "alert_id": "al-20260915-0014-6d93",
+      "service": "notifications",
+      "severity": "P1",
+      "first_window": "2026-09-15T02:58:00+00:00",
+      "score": 0.9,
+      "incident_match": "flt-c93dc5c0"
+    },
+    {
+      "alert_id": "al-20260914-0013-c4c4",
+      "service": "gateway",
+      "severity": "P1",
+      "first_window": "2026-09-14T21:22:00+00:00",
+      "score": 0.946,
+      "incident_match": "flt-6b3a5534"
+    },
+    {
+      "alert_id": "al-20260914-0011-94de",
+      "service": "orders",
+      "severity": "P1",
+      "first_window": "2026-09-14T21:22:00+00:00",
+      "score": 0.964,
+      "incident_match": "flt-6b3a5534"
+    },
+    {
+      "alert_id": "al-20260914-0012-3c73",
+      "service": "payments",
+      "severity": "P1",
+      "first_window": "2026-09-14T21:22:00+00:00",
+      "score": 0.994,
+      "incident_match": "flt-6b3a5534"
+    },
+    {
+      "alert_id": "al-20260914-0010-9ef5",
+      "service": "payments",
+      "severity": "P2",
+      "first_window": "2026-09-14T18:18:00+00:00",
+      "score": 0.85,
+      "incident_match": "flt-3e2f9af2"
+    },
+    {
+      "alert_id": "al-20260914-0008-d244",
+      "service": "inventory",
+      "severity": "P2",
+      "first_window": "2026-09-14T13:24:00+00:00",
+      "score": 0.85,
+      "incident_match": null
+    },
+    {
+      "alert_id": "al-20260914-0009-bcb7",
+      "service": "gateway",
+      "severity": "P2",
+      "first_window": "2026-09-14T13:24:00+00:00",
+      "score": 0.85,
+      "incident_match": "flt-1ba48865"
+    },
+    {
+      "alert_id": "al-20260914-0007-eea5",
+      "service": "orders",
+      "severity": "P1",
+      "first_window": "2026-09-14T13:22:00+00:00",
+      "score": 0.9,
+      "incident_match": "flt-1ba48865"
+    },
+    {
+      "alert_id": "al-20260914-0006-ea54",
+      "service": "gateway",
+      "severity": "P1",
+      "first_window": "2026-09-14T09:14:00+00:00",
+      "score": 0.962,
+      "incident_match": "flt-5c363491"
+    },
+    {
+      "alert_id": "al-20260914-0005-3441",
+      "service": "gateway",
+      "severity": "P1",
+      "first_window": "2026-09-14T06:30:00+00:00",
+      "score": 0.974,
+      "incident_match": "flt-74e01cbc"
+    },
+    {
+      "alert_id": "al-20260914-0003-24d4",
+      "service": "payments",
+      "severity": "P1",
+      "first_window": "2026-09-14T06:29:00+00:00",
+      "score": 0.994,
+      "incident_match": "flt-74e01cbc"
+    },
+    {
+      "alert_id": "al-20260914-0004-4010",
+      "service": "orders",
+      "severity": "P1",
+      "first_window": "2026-09-14T06:29:00+00:00",
+      "score": 0.96,
+      "incident_match": "flt-74e01cbc"
+    },
+    {
+      "alert_id": "al-20260914-0002-77d1",
+      "service": "notifications",
+      "severity": "P3",
+      "first_window": "2026-09-14T03:57:00+00:00",
+      "score": 0.719,
+      "incident_match": null
+    },
+    {
+      "alert_id": "al-20260914-0001-2e0c",
+      "service": "payments",
+      "severity": "P2",
+      "first_window": "2026-09-14T00:27:00+00:00",
+      "score": 0.85,
+      "incident_match": "flt-56cdcadd"
+    }
+  ],
+  "wall_seconds": 10971.9
+}

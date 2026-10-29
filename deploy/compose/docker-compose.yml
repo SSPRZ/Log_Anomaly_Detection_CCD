@@ -1,0 +1,284 @@
+# Local full stack (Section 5.1 "Local"): make up
+#
+#   shop (simulated services, stdout) --fluentd driver--> fluent-bit --> Kafka logs.raw
+#   parse-enrich -> window-features -> anomaly-scorer -> alert-router   (one container per stage)
+#   clickhouse-sink / s3-sink (Kafka Connect equivalents) -> ClickHouse / SeaweedFS (S3 API)
+#   Prometheus + Alertmanager + Grafana, MLflow (Postgres + S3), Streamlit dashboard
+#
+# Optional profiles:  --profile flink    Flink JobManager/TaskManager running stream/flink jobs
+#                     --profile connect  Kafka Connect with ClickHouse + S3 sink connectors
+#                     --profile jobs     one-shot trainer
+name: lap
+
+x-lap-env: &lap-env
+  LAP__BUS__BACKEND: kafka
+  LAP__BUS__KAFKA__BOOTSTRAP_SERVERS: kafka:9092
+  LAP__STORAGE__BACKEND: clickhouse
+  LAP__STORAGE__CLICKHOUSE__HOST: clickhouse
+  LAP__STORAGE__CLICKHOUSE__PASSWORD: lap
+  LAP__DETECTION__REGISTRY_DIR: /models
+  LAP__DETECTION__MLFLOW__TRACKING_URI: http://mlflow:5000
+  LAP__ALERTING__ALERTMANAGER_URL: http://alertmanager:9093
+  LAP__ALERTING__DASHBOARD_URL: http://localhost:8501
+  LAP__ALERTING__GRAFANA_URL: http://localhost:3000
+  SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+  PAGERDUTY_ROUTING_KEY: ${PAGERDUTY_ROUTING_KEY:-}
+
+x-lap: &lap
+  image: lap:dev
+  build: { context: ../.., args: { WITH_TORCH: "false", WITH_UI: "true" } }
+  environment: *lap-env
+  restart: unless-stopped
+  volumes: [ "models:/models", "checkpoints:/app/data/checkpoints" ]
+  depends_on:
+    kafka-init: { condition: service_completed_successfully }
+    clickhouse: { condition: service_healthy }
+
+services:
+  # ------------------------------------------------------------------ messaging
+  kafka:
+    restart: unless-stopped
+    image: apache/kafka:4.3.0
+    hostname: kafka
+    ports: [ "9094:9094" ]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_COMPRESSION_TYPE: zstd
+      KAFKA_LOG_RETENTION_HOURS: 72
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx768m"     # laptop-sized; production brokers get 16 GB nodes
+      # single combined broker+controller in a small VM: CPU bursts (stack start-up, training) must not
+      # make the broker miss heartbeats to its own controller and get fenced (that breaks idempotent producers)
+      KAFKA_BROKER_SESSION_TIMEOUT_MS: 30000
+      KAFKA_BROKER_HEARTBEAT_INTERVAL_MS: 3000
+      KAFKA_CONTROLLER_QUORUM_REQUEST_TIMEOUT_MS: 10000
+    healthcheck:
+      # a plain TCP probe: the kafka-*.sh tools start a whole JVM (with KAFKA_HEAP_OPTS) every run, which in a
+      # small VM starves the broker until its KRaft heartbeats time out and it gets fenced
+      test: [ "CMD-SHELL", "bash -c '</dev/tcp/localhost/9092' >/dev/null 2>&1" ]
+      interval: 15s
+      start_period: 20s
+      retries: 20
+
+  kafka-init:
+    image: apache/kafka:4.3.0
+    depends_on: { kafka: { condition: service_healthy } }
+    volumes: [ "../../ingestion/topics/create-topics.sh:/create-topics.sh:ro" ]
+    entrypoint: [ "bash", "/create-topics.sh", "kafka:9092", "1" ]
+
+  schema-registry:
+    restart: unless-stopped
+    image: apicurio/apicurio-registry-mem:2.6.2.Final
+    ports: [ "8081:8080" ]
+
+  fluent-bit:
+    restart: unless-stopped
+    image: fluent/fluent-bit:3.1.9
+    ports: [ "24224:24224" ]
+    volumes: [ "../../ingestion/fluent-bit:/fluent-bit/etc:ro" ]
+    command: [ "/fluent-bit/bin/fluent-bit", "-c", "/fluent-bit/etc/fluent-bit-compose.conf" ]
+    depends_on: { kafka-init: { condition: service_completed_successfully } }
+
+  # ------------------------------------------------------------------ workload
+  shop:
+    <<: *lap
+    command: [ "simulate", "--sink", "stdout", "--rpm", "40" ]
+    ports: [ "8090:8090" ]          # fault injector + /checkout for Locust
+    depends_on: [ fluent-bit ]
+    logging:
+      driver: fluentd
+      options: { fluentd-address: "localhost:24224", tag: "shop", fluentd-async: "true" }
+
+  # ------------------------------------------------------------------ pipeline stages
+  parse-enrich:     { <<: *lap, command: [ "stage", "parse-enrich" ] }
+  window-features:  { <<: *lap, command: [ "stage", "window-features" ] }
+  anomaly-scorer:   { <<: *lap, command: [ "stage", "anomaly-scorer" ] }
+  alert-router:     { <<: *lap, command: [ "stage", "alert-router" ] }
+  clickhouse-sink:  { <<: *lap, command: [ "stage", "clickhouse-sink" ] }
+  s3-sink:
+    <<: *lap
+    command: [ "stage", "s3-sink" ]
+    environment:
+      <<: *lap-env
+      LAP_ARCHIVE_URI: s3://logs-archive
+      S3_ENDPOINT: http://seaweedfs:8333
+      AWS_ACCESS_KEY_ID: lap
+      AWS_SECRET_ACCESS_KEY: lap-s3-secret
+      AWS_REGION: us-east-1
+
+  trainer:
+    <<: *lap
+    profiles: [ jobs ]
+    restart: "no"
+    command: [ "train", "--promote" ]
+
+  dashboard:
+    <<: *lap
+    command: [ "dashboard" ]
+    ports: [ "8501:8501" ]
+
+  # ------------------------------------------------------------------ storage
+  clickhouse:
+    restart: unless-stopped
+    image: clickhouse/clickhouse-server:24.8
+    ports: [ "8123:8123", "9000:9000" ]
+    environment: { CLICKHOUSE_DB: lap, CLICKHOUSE_USER: default, CLICKHOUSE_PASSWORD: lap }
+    volumes:
+      - "clickhouse:/var/lib/clickhouse"           # tables are created by the stages (storage/store.py migrate)
+      - "./clickhouse/prometheus.xml:/etc/clickhouse-server/config.d/prometheus.xml:ro"
+    ulimits: { nofile: { soft: 262144, hard: 262144 } }
+    healthcheck:
+      test: [ "CMD", "wget", "-qO-", "http://localhost:8123/ping" ]
+      interval: 5s
+      retries: 30
+
+  # S3-compatible object store (MinIO's community images are no longer published, so SeaweedFS is used;
+  # on AWS/GCS the same s3:// URIs point at the managed bucket instead)
+  seaweedfs:
+    restart: unless-stopped
+    image: chrislusf/seaweedfs:3.80
+    command: [ "server", "-dir=/data", "-s3", "-s3.port=8333", "-s3.config=/etc/seaweedfs/s3.json",
+               "-master.volumeSizeLimitMB=512", "-volume.max=0" ]
+    ports: [ "8333:8333" ]
+    volumes: [ "seaweedfs:/data", "./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro" ]
+
+  s3-init:   # create the buckets with the platform image's own S3 client (pyarrow)
+    image: lap:dev
+    restart: "no"
+    depends_on: [ seaweedfs ]
+    environment: { AWS_ACCESS_KEY_ID: lap, AWS_SECRET_ACCESS_KEY: lap-s3-secret }
+    entrypoint: [ "python3", "-c" ]
+    command:
+      - |
+        import time
+        from pyarrow import fs
+        s3 = fs.S3FileSystem(endpoint_override="http://seaweedfs:8333", scheme="http", region="us-east-1",
+                             access_key="lap", secret_key="lap-s3-secret", allow_bucket_creation=True)
+        for attempt in range(60):
+            try:
+                for b in ("logs-archive", "mlflow", "flink-checkpoints"):
+                    if s3.get_file_info(b).type == fs.FileType.NotFound:
+                        s3.create_dir(b)
+                print("buckets:", [i.path for i in s3.get_file_info(fs.FileSelector("/"))])
+                break
+            except Exception as e:
+                print("waiting for seaweedfs:", type(e).__name__, e)
+                time.sleep(3)
+        else:
+            raise SystemExit("seaweedfs not reachable")
+
+  postgres:
+    restart: unless-stopped
+    image: postgres:16.4
+    environment: { POSTGRES_USER: mlflow, POSTGRES_PASSWORD: mlflow, POSTGRES_DB: mlflow }
+    volumes: [ "postgres:/var/lib/postgresql/data" ]
+
+  mlflow:
+    restart: unless-stopped
+    image: ghcr.io/mlflow/mlflow:v2.17.2
+    ports: [ "5000:5000" ]
+    depends_on:
+      postgres: { condition: service_started }
+      s3-init: { condition: service_completed_successfully }
+    environment:
+      MLFLOW_S3_ENDPOINT_URL: http://seaweedfs:8333
+      AWS_ACCESS_KEY_ID: lap
+      AWS_SECRET_ACCESS_KEY: lap-s3-secret
+    # list form on purpose: in a folded (>) scalar, the more-indented continuation lines keep their
+    # newlines, so bash would start the server without the Postgres/S3 options
+    command:
+      - bash
+      - -c
+      - >-
+        pip install --quiet --retries 10 --timeout 60 psycopg2-binary boto3 &&
+        exec mlflow server --host 0.0.0.0 --port 5000
+        --backend-store-uri postgresql://mlflow:mlflow@postgres/mlflow
+        --artifacts-destination s3://mlflow --serve-artifacts
+
+  # ------------------------------------------------------------------ observability
+  prometheus:
+    restart: unless-stopped
+    image: prom/prometheus:v2.54.1
+    ports: [ "9090:9090" ]
+    volumes:
+      - "./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
+      - "./prometheus/rules.yml:/etc/prometheus/rules.yml:ro"
+
+  alertmanager:
+    restart: unless-stopped
+    image: prom/alertmanager:v0.27.0
+    ports: [ "9093:9093" ]
+    volumes: [ "./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro" ]
+
+  grafana:
+    restart: unless-stopped
+    image: grafana/grafana:11.2.2
+    ports: [ "3000:3000" ]
+    environment:
+      GF_INSTALL_PLUGINS: grafana-clickhouse-datasource
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes: [ "./grafana/provisioning:/etc/grafana/provisioning:ro", "./grafana/dashboards:/var/lib/grafana/dashboards:ro" ]
+
+  # ------------------------------------------------------------------ optional: Flink cluster
+  flink-jobmanager:
+    image: flink:2.0.0-scala_2.12-java17
+    profiles: [ flink ]
+    command: jobmanager
+    ports: [ "8082:8081" ]
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        execution.checkpointing.interval: 30s
+        state.checkpoints.dir: s3://flink-checkpoints/
+        s3.endpoint: http://seaweedfs:8333
+        s3.path.style.access: true
+        s3.access-key: lap
+        s3.secret-key: lap-s3-secret
+    volumes: [ "../../stream/flink:/opt/lap/flink:ro" ]
+  flink-taskmanager:
+    image: flink:2.0.0-scala_2.12-java17
+    profiles: [ flink ]
+    command: taskmanager
+    depends_on: [ flink-jobmanager ]
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 4
+
+  # ------------------------------------------------------------------ optional: Kafka Connect
+  connect:
+    image: confluentinc/cp-kafka-connect:7.7.1
+    profiles: [ connect ]
+    ports: [ "8083:8083" ]
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka:9092
+      CONNECT_GROUP_ID: lap-connect
+      CONNECT_CONFIG_STORAGE_TOPIC: _connect-configs
+      CONNECT_OFFSET_STORAGE_TOPIC: _connect-offsets
+      CONNECT_STATUS_STORAGE_TOPIC: _connect-status
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+      CONNECT_REST_ADVERTISED_HOST_NAME: connect
+      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components
+    command: >
+      bash -c "confluent-hub install --no-prompt clickhouse/clickhouse-kafka-connect:v1.2.3 &&
+               confluent-hub install --no-prompt confluentinc/kafka-connect-s3:10.5.17 &&
+               /etc/confluent/docker/run"
+    volumes: [ "../../storage/connect:/connectors:ro" ]
+
+volumes: { models: {}, checkpoints: {}, clickhouse: {}, seaweedfs: {}, postgres: {} }

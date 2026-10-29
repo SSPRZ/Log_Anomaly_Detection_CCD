@@ -1,0 +1,302 @@
+{
+  "uid": "lap-anomalies",
+  "title": "LAP - anomalies, alerts and pipeline SLOs",
+  "schemaVersion": 39,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "tags": [
+    "lap"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "clickhouse"
+        },
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "query": "SELECT DISTINCT service FROM lap.features_1m WHERE service != 'canary'",
+        "refresh": 2
+      },
+      {
+        "name": "q",
+        "type": "textbox",
+        "label": "log search",
+        "query": ""
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Anomaly score per service",
+      "type": "timeseries",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "rawSql": "SELECT toDateTime(toUInt32(window_start)) AS time, service, score\nFROM lap.anomalies FINAL WHERE $__timeFilter(window_time) AND service IN (${service:singlequote})\nORDER BY time",
+          "queryType": "timeseries"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Alerts",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "rawSql": "SELECT toDateTime(toUInt32(first_window)) AS opened, alert_id, incident_id, severity, service, status, round(score, 2) AS score,\nJSONExtractString(payload, 'window') AS window\nFROM lap.alerts FINAL WHERE first_window >= toUnixTimestamp($__fromTime) AND service IN (${service:singlequote}) ORDER BY opened DESC LIMIT 200",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Anomalous windows with explanations",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 9,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "rawSql": "SELECT toDateTime(toUInt32(window_start)) AS time, service, round(score,2) AS score, top_drivers,\nJSONExtract(explanation, 'samples', 'Array(String)')[1] AS sample\nFROM lap.anomalies FINAL WHERE is_anomalous = 1 AND $__timeFilter(window_time) AND service IN (${service:singlequote}) ORDER BY time DESC LIMIT 200",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Log volume / minute",
+      "type": "timeseries",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "rawSql": "SELECT toDateTime(toUInt32(window_start)) AS time, service, total_count\nFROM lap.features_1m FINAL WHERE $__timeFilter(window_time) AND service IN (${service:singlequote}) ORDER BY time",
+          "queryType": "timeseries"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Error ratio",
+      "type": "timeseries",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 18,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "rawSql": "SELECT toDateTime(toUInt32(window_start)) AS time, service, error_ratio\nFROM lap.features_1m FINAL WHERE $__timeFilter(window_time) AND service IN (${service:singlequote}) ORDER BY time",
+          "queryType": "timeseries"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Log explorer (search: $q)",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "rawSql": "SELECT event_time, service, level, host, template_id, msg FROM lap.logs\nWHERE $__timeFilter(event_time) AND service IN (${service:singlequote}) AND ('$q' = '' OR positionCaseInsensitive(msg, '$q') > 0)\nORDER BY event_time DESC LIMIT 500",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "e2e latency p95 (SLO < 60 s)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "lap:e2e_latency_seconds:p95_1h"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Consumer lag",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 36,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "lap_consumer_lag"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "DLQ rate",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 36,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "rps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (reason) (rate(lap_dlq_total[5m]))"
+        }
+      ]
+    }
+  ]
+}

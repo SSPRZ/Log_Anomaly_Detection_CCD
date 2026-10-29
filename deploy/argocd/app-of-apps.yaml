@@ -1,0 +1,16 @@
+# Argo CD app-of-apps (GitOps, Section 5.2). Git is the source of truth; drift is detected and
+# self-healed; rollback = revert the commit (or "argocd app rollback").
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: lap-root
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/example/log-anomaly-platform.git
+    targetRevision: main
+    path: deploy/argocd/apps
+  destination: { server: https://kubernetes.default.svc, namespace: argocd }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }

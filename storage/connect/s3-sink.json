@@ -1,0 +1,24 @@
+{
+  "name": "lap-s3-archive",
+  "config": {
+    "connector.class": "io.confluent.connect.s3.S3SinkConnector",
+    "tasks.max": "6",
+    "topics": "logs.raw,logs.features,anomalies.scores,alerts.outbound",
+    "s3.bucket.name": "logs-archive",
+    "store.url": "http://minio:9000",
+    "s3.region": "us-east-1",
+    "storage.class": "io.confluent.connect.s3.storage.S3Storage",
+    "format.class": "io.confluent.connect.s3.format.parquet.ParquetFormat",
+    "parquet.codec": "zstd",
+    "partitioner.class": "io.confluent.connect.storage.partitioner.TimeBasedPartitioner",
+    "path.format": "'dt'=YYYY-MM-dd/'hour'=HH",
+    "partition.duration.ms": "3600000",
+    "locale": "en-US",
+    "timezone": "UTC",
+    "timestamp.extractor": "Record",
+    "flush.size": "50000",
+    "rotate.schedule.interval.ms": "600000",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false"
+  }
+}

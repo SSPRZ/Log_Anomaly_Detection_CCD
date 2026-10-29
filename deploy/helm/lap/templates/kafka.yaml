@@ -1,0 +1,78 @@
+# Strimzi: Kafka 4.x in KRaft mode with dedicated controllers, mTLS listeners, rack awareness.
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaNodePool
+metadata:
+  name: controllers
+  namespace: kafka
+  labels: { strimzi.io/cluster: {{ .Values.kafka.cluster }} }
+spec:
+  replicas: {{ .Values.kafka.controllers }}
+  roles: [ controller ]
+  storage: { type: persistent-claim, size: 20Gi, deleteClaim: false }
+  resources: { requests: { cpu: "1", memory: 4Gi }, limits: { memory: 4Gi } }
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaNodePool
+metadata:
+  name: brokers
+  namespace: kafka
+  labels: { strimzi.io/cluster: {{ .Values.kafka.cluster }} }
+spec:
+  replicas: {{ .Values.kafka.replicas }}
+  roles: [ broker ]
+  storage: { type: persistent-claim, size: {{ .Values.kafka.storage }}, class: ssd, deleteClaim: false }
+  resources: { requests: { cpu: "4", memory: 16Gi }, limits: { memory: 16Gi } }
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: {{ .Values.kafka.cluster }}
+  namespace: kafka
+  annotations:
+    strimzi.io/node-pools: enabled
+    strimzi.io/kraft: enabled
+spec:
+  kafka:
+    version: 4.3.0   # < 4.3 the group coordinator breaks when the wall clock steps back (negative histogram value)
+    rack: { topologyKey: topology.kubernetes.io/zone }
+    listeners:
+      - { name: tls, port: 9093, type: internal, tls: true, authentication: { type: tls } }
+    authorization: { type: simple }
+    config:
+      default.replication.factor: {{ min 3 .Values.kafka.replicas }}
+      min.insync.replicas: {{ if ge (int .Values.kafka.replicas) 3 }}2{{ else }}1{{ end }}
+      auto.create.topics.enable: false
+      compression.type: zstd
+      log.retention.hours: 72
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
+---
+# Least-privilege ACLs per principal (Section 7): Fluent Bit may only write logs.raw, etc.
+{{- $acls := dict
+  "fluent-bit"      (list (dict "topic" "logs.raw" "ops" (list "Write" "Describe")))
+  "parse-enrich"    (list (dict "topic" "logs.raw" "ops" (list "Read" "Describe")) (dict "topic" "logs.parsed" "ops" (list "Write")) (dict "topic" "logs.dlq" "ops" (list "Write")))
+  "window-features" (list (dict "topic" "logs.parsed" "ops" (list "Read" "Describe")) (dict "topic" "logs.features" "ops" (list "Write")) (dict "topic" "logs.sequences" "ops" (list "Write")) (dict "topic" "logs.dlq" "ops" (list "Write")))
+  "anomaly-scorer"  (list (dict "topic" "logs.features" "ops" (list "Read" "Describe")) (dict "topic" "logs.sequences" "ops" (list "Read")) (dict "topic" "deploys.events" "ops" (list "Read")) (dict "topic" "anomalies.scores" "ops" (list "Write")))
+  "alert-router"    (list (dict "topic" "anomalies.scores" "ops" (list "Read" "Describe")) (dict "topic" "alerts.outbound" "ops" (list "Write")))
+  "clickhouse-sink" (list (dict "topic" "logs.parsed" "ops" (list "Read")) (dict "topic" "logs.features" "ops" (list "Read")) (dict "topic" "anomalies.scores" "ops" (list "Read")) (dict "topic" "logs.dlq" "ops" (list "Read")) (dict "topic" "deploys.events" "ops" (list "Read")))
+}}
+{{- range $user, $rules := $acls }}
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: {{ $user }}
+  namespace: kafka
+  labels: { strimzi.io/cluster: {{ $.Values.kafka.cluster }} }
+spec:
+  authentication: { type: tls }
+  authorization:
+    type: simple
+    acls:
+      - { resource: { type: group, name: {{ $user }}, patternType: literal }, operations: [ Read ] }
+      {{- range $rules }}
+      - resource: { type: topic, name: {{ .topic }}, patternType: literal }
+        operations: {{ toJson .ops }}
+      {{- end }}
+{{- end }}

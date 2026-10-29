@@ -1,0 +1,64 @@
+# Defaults shared by every environment; values-<env>.yaml override only what differs.
+image:
+  repository: ghcr.io/example/lap
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+env: dev
+kafka:
+  cluster: logs-cluster
+  replicas: 3
+  controllers: 3
+  storage: 100Gi
+  bootstrap: logs-cluster-kafka-bootstrap.kafka:9093
+  tls: true
+
+clickhouse:
+  host: chi-lap-lap-0-0.clickhouse
+  shards: 1
+  replicas: 2
+  storage: 200Gi
+
+objectStore:
+  archiveUri: s3://logs-archive
+  checkpointsUri: s3://flink-checkpoints
+  endpoint: ""          # empty on AWS; http://minio.minio:9000 on a lab cluster
+
+mlflow:
+  trackingUri: http://mlflow.lap-system:5000
+
+# one Deployment per Python stage; KEDA scales on consumer lag up to the partition count
+stages:
+  parse-enrich:     { replicas: 2, maxReplicas: 24, lagThreshold: 5000, topic: logs.raw,         cpu: "1",   memory: 2Gi }
+  window-features:  { replicas: 1, maxReplicas: 1,  lagThreshold: 0,    topic: logs.parsed,      cpu: "2",   memory: 4Gi, stateful: true }
+  anomaly-scorer:   { replicas: 2, maxReplicas: 4,  lagThreshold: 200,  topic: logs.features,    cpu: "1",   memory: 2Gi }
+  alert-router:     { replicas: 2, maxReplicas: 2,  lagThreshold: 0,    topic: anomalies.scores, cpu: "500m", memory: 1Gi, egress: true }
+  clickhouse-sink:  { replicas: 2, maxReplicas: 6,  lagThreshold: 20000, topic: logs.parsed,     cpu: "1",   memory: 2Gi }
+
+flink:
+  enabled: true           # run parse-enrich / window-features as Flink jobs instead of Python stages
+  version: v2_0
+  parallelism: 12
+  jobManager: { cpu: 2, memory: 4096m }
+  taskManager: { cpu: 4, memory: 8192m, replicas: 3, slots: 4 }
+
+jobs:
+  train:  { schedule: "30 2 * * *",  args: [ "train" ] }               # nightly, 14-day window, gate + shadow
+  tune:   { schedule: "0 6 * * 1",   args: [ "tune", "--days", "7" ] }  # weekly feedback-driven thresholds
+  drift:  { schedule: "15 * * * *",  args: [ "drift", "--hours", "24" ] }
+  shadowPromote: { schedule: "0 9 * * *", args: [ "promote", "--after-shadow" ] }
+
+alerting:
+  slackSecret: lap-slack          # keys: webhook_url, signing_secret
+  pagerdutySecret: lap-pagerduty  # key: routing_key
+  alertmanagerUrl: http://alertmanager-operated.monitoring:9093
+
+externalSecrets:
+  enabled: true
+  store: cluster-secret-store     # ClusterSecretStore backed by the cloud secret manager / Vault
+
+networkPolicy:
+  enabled: true                   # default-deny; only alert-router gets egress to Slack / PagerDuty
+
+fluent-bit:
+  enabled: true

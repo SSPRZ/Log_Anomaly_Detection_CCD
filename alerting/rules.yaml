@@ -1,0 +1,20 @@
+# Alert routing rules (Section 4.6) -- lives in Git, reviewed like code.
+# The first matching route wins; `continue: true` keeps evaluating.
+severity:
+  p1_min_score: 0.9            # or any hard rule on a tier-1 service
+  p3_max_tier: 3               # tier-3 services without a rule hit are dashboard-only (P3)
+
+routes:
+  - match: { severity: P1 }
+    channels: [pagerduty, slack, email]
+  - match: { severity: P2 }
+    channels: [slack]
+  - match: { severity: P3 }
+    channels: [dashboard]
+
+pipeline:                      # alerts about the platform itself go elsewhere
+  channels: [slack]
+  slack_channel: "#lap-pipeline"
+
+maintenance_windows: []        # - { service: payments, start: "2026-10-20T01:00:00Z", end: "2026-10-20T02:00:00Z" }
+silences: []                   # - { service: notifications, template_id: t1234abcd, until: "2026-10-31T00:00:00Z" }

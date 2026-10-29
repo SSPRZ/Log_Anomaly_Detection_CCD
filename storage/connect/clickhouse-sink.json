@@ -1,0 +1,23 @@
+{
+  "name": "lap-clickhouse-sink",
+  "config": {
+    "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+    "tasks.max": "6",
+    "topics": "logs.parsed,logs.features,anomalies.scores,logs.dlq,deploys.events",
+    "topic2TableMap": "logs.parsed=logs,logs.features=features_1m,anomalies.scores=anomalies,logs.dlq=dlq,deploys.events=deploys",
+    "hostname": "clickhouse",
+    "port": "8443",
+    "ssl": "true",
+    "database": "lap",
+    "username": "${file:/secrets/clickhouse.properties:username}",
+    "password": "${file:/secrets/clickhouse.properties:password}",
+    "exactlyOnce": "true",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "consumer.override.isolation.level": "read_committed",
+    "errors.tolerance": "all",
+    "errors.deadletterqueue.topic.name": "logs.dlq",
+    "errors.deadletterqueue.context.headers.enable": "true",
+    "errors.retry.timeout": "600000"
+  }
+}

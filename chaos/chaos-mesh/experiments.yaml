@@ -1,0 +1,64 @@
+# Chaos Mesh experiments for staging (Sections 8 and 9.2 "Resilience"): run during the 2x load test;
+# expectations: no data loss, recovery within SLO, pipeline alerts route to #lap-pipeline.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata: { name: kill-kafka-broker, namespace: chaos }
+spec:
+  action: pod-kill
+  mode: one
+  selector: { namespaces: [ kafka ], labelSelectors: { strimzi.io/pool-name: brokers } }
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata: { name: kill-flink-taskmanager, namespace: chaos }
+spec:
+  action: pod-kill
+  mode: one
+  selector: { namespaces: [ lap ], labelSelectors: { component: taskmanager } }
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata: { name: scorer-down-5m, namespace: chaos }
+spec:
+  action: pod-failure          # scorer unavailable: Kafka buffers, T1 fallback keeps alerting
+  mode: all
+  duration: 5m
+  selector: { namespaces: [ lap ], labelSelectors: { app.kubernetes.io/name: anomaly-scorer } }
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata: { name: clickhouse-partition, namespace: chaos }
+spec:
+  action: partition            # dashboards stale, detection unaffected, sink backfills on recovery
+  mode: all
+  duration: 10m
+  selector: { namespaces: [ clickhouse ] }
+  direction: both
+  target: { mode: all, selector: { namespaces: [ lap ] } }
+---
+# Labelled application incidents (ground truth) -- the same kinds the fault-injector API produces.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata: { name: payments-bank-gateway-delay, namespace: chaos, labels: { lap/incident: downstream_timeout } }
+spec:
+  action: delay
+  mode: all
+  duration: 15m
+  selector: { namespaces: [ shop ], labelSelectors: { app.kubernetes.io/name: payments } }
+  delay: { latency: 3500ms, jitter: 200ms }
+  direction: to
+  externalTargets: [ bank-gateway.example.com ]
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: Schedule
+metadata: { name: inventory-crash-loop, namespace: chaos, labels: { lap/incident: crash_loop } }
+spec:
+  schedule: "@every 60s"
+  type: PodChaos
+  historyLimit: 5
+  concurrencyPolicy: Forbid
+  podChaos:
+    action: pod-kill
+    mode: fixed-percent
+    value: "50"
+    selector: { namespaces: [ shop ], labelSelectors: { app.kubernetes.io/name: inventory } }

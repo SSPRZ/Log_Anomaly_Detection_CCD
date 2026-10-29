@@ -1,0 +1,158 @@
+# Central platform configuration. Every component reads this file; environment
+# variables of the form LAP__SECTION__KEY override individual values
+# (e.g. LAP__BUS__BACKEND=kafka).
+
+env: dev
+
+bus:
+  backend: local            # local | kafka
+  kafka:
+    bootstrap_servers: localhost:9092
+    client_id: lap
+    acks: all
+    enable_idempotence: true
+    compression_type: zstd
+    linger_ms: 20
+  topics:
+    raw: logs.raw
+    parsed: logs.parsed
+    features: logs.features
+    sequences: logs.sequences
+    scores: anomalies.scores
+    alerts: alerts.outbound
+    dlq: logs.dlq
+    deploys: deploys.events
+    feedback: alerts.feedback
+  partitions:
+    logs.raw: 24
+    logs.parsed: 24
+    logs.features: 12
+    logs.sequences: 12
+    anomalies.scores: 6
+    alerts.outbound: 3
+    logs.dlq: 6
+    deploys.events: 1
+    alerts.feedback: 1
+
+storage:
+  backend: sqlite           # sqlite | clickhouse
+  sqlite_path: data/lap.db
+  clickhouse:
+    host: localhost
+    port: 8123
+    username: default
+    password: ""
+    database: lap
+    compress: true                # false from a Windows host via Docker Desktop port-forwarding (resets compressed HTTP)
+  retention_days:
+    logs: 14
+    features_1m: 90
+    anomalies: 365
+
+ingest:
+  max_message_bytes: 1048576
+  required_fields: [ts, service, env, level, msg]
+
+stream:
+  window_seconds: 60
+  out_of_orderness_seconds: 5     # watermark = max event time - this
+  allowed_lateness_seconds: 30    # late records inside this re-emit a revision
+  new_template_horizon_days: 7
+  template_hash_buckets: 64
+  session_gap_seconds: 30         # trace session window for the sequence model
+  idle_timeout_seconds: 10        # a source this far behind the newest is idle for watermarking (latency vs. revisions)
+  drain:
+    depth: 4
+    sim_threshold: 0.5
+    max_children: 100
+    max_clusters: 5000
+
+detection:
+  features:                       # scalar features used by T1 / T2
+    - total_count
+    - count_delta_week
+    - distinct_hosts
+    - error_count
+    - warn_count
+    - error_ratio
+    - unique_templates
+    - new_templates
+    - template_entropy
+    - p50_latency_ms
+    - p95_latency_ms
+    - p99_latency_ms
+    - ratio_5xx
+    - seconds_since_last
+  baseline:
+    min_samples: 20               # below this, fall back to hour-of-day, then service-wide
+    # count_delta_week needs a full prior week and is heteroscedastic; the hour-of-week baseline on
+    # total_count already compares with the same time last week, so T1 skips it (T2 still sees it)
+    exclude_features: [count_delta_week]
+    mad_floor:                    # minimum spread so near-constant features don't explode
+      default: 1.0
+      distinct_hosts: 0.25
+      error_ratio: 0.02
+      ratio_5xx: 0.02
+      template_entropy: 0.15
+      p50_latency_ms: 10
+      p95_latency_ms: 25
+      p99_latency_ms: 40
+      seconds_since_last: 5
+    ewma_alpha: 0.1
+    trend_freeze_z: 6.0           # windows with any |z| >= this do not update the drift EWMA
+    z_cap: 12.0
+    z_scale: 8.0                  # z at which the T1 score saturates towards 1
+  iforest:
+    n_estimators: 100
+    contamination: auto
+    train_days: 14
+    service_groups:               # one model per group
+      edge: [gateway]
+      core: [orders, payments, inventory]
+      async: [notifications]
+  sequence:
+    enabled: true
+    window: 4                     # history length h
+    top_k: 3
+    epochs: 6
+    backend: auto                 # auto | torch | markov
+  rules:
+    new_error_template_min_count: 3
+    liveness_timeout_seconds: 90
+  ensemble:
+    weights: { stats: 0.45, iforest: 0.35, sequence: 0.20 }
+    threshold: 0.55
+    debounce_windows: 3           # alert when >= debounce_hits of last N windows exceed threshold
+    debounce_hits: 2
+  deploy_rewarm_minutes: 15       # after a deploy event, z-scores are damped for this long
+  deploy_damping: 0.5
+  shadow_days: 3
+  registry_dir: data/models
+  mlflow:
+    enabled: true
+    tracking_uri: file:./data/mlruns
+    experiment: log-anomaly-detection
+  evaluation_gate:
+    max_f1_regression: 0.0
+    max_alerts_per_service_day: 5
+
+alerting:
+  rules_file: alerting/rules.yaml
+  dedup_minutes: 15
+  incident_group_minutes: 2
+  alertmanager_url: ""            # e.g. http://alertmanager:9093 ; empty = deliver directly
+  slack_webhook_url: ""           # or env SLACK_WEBHOOK_URL
+  pagerduty_routing_key: ""       # or env PAGERDUTY_ROUTING_KEY
+  smtp:
+    host: ""
+    port: 587
+    sender: lap-alerts@example.com
+    recipients: []
+  dashboard_url: http://localhost:8501
+  grafana_url: http://localhost:3000
+
+observability:
+  metrics_port: 9108
+  canary_service: canary
+  canary_interval_seconds: 30
+  canary_deadman_seconds: 180

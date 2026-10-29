@@ -1,0 +1,70 @@
+{{- if .Values.networkPolicy.enabled }}
+# Default-deny; stages may reach Kafka, ClickHouse, object storage, MLflow and DNS only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: default-deny }
+spec:
+  podSelector: {}
+  policyTypes: [ Ingress, Egress ]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: lap-internal-egress }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/part-of: lap } }
+  policyTypes: [ Egress ]
+  egress:
+    - to: [ { namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kafka } } } ]
+      ports: [ { port: 9093 } ]
+    - to: [ { namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: clickhouse } } } ]
+      ports: [ { port: 8443 }, { port: 9440 } ]
+    - to: [ { namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: lap-system } } } ]
+      ports: [ { port: 5000 }, { port: 9000 } ]
+    - to: [ { namespaceSelector: {}, podSelector: { matchLabels: { k8s-app: kube-dns } } } ]
+      ports: [ { port: 53, protocol: UDP }, { port: 53, protocol: TCP } ]
+---
+# Only the alert-router has egress to the internet (Slack / PagerDuty / SMTP).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: alert-router-egress }
+spec:
+  podSelector: { matchLabels: { lap/egress: "true" } }
+  policyTypes: [ Egress ]
+  egress:
+    - to: [ { ipBlock: { cidr: 0.0.0.0/0, except: [ 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 ] } } ]
+      ports: [ { port: 443 }, { port: 587 } ]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: allow-prometheus-scrape }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/part-of: lap } }
+  policyTypes: [ Ingress ]
+  ingress:
+    - from: [ { namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: monitoring } } } ]
+      ports: [ { port: 9108 } ]
+{{- end }}
+{{- if .Values.externalSecrets.enabled }}
+---
+# No secrets in Git: synced from the cloud secret manager / Vault with automatic rotation.
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata: { name: lap-secrets }
+spec:
+  refreshInterval: 1h
+  secretStoreRef: { kind: ClusterSecretStore, name: {{ .Values.externalSecrets.store }} }
+  target: { name: lap-clickhouse }
+  data:
+    - { secretKey: password, remoteRef: { key: lap/{{ .Values.env }}/clickhouse, property: password } }
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata: { name: lap-alerting-secrets }
+spec:
+  refreshInterval: 1h
+  secretStoreRef: { kind: ClusterSecretStore, name: {{ .Values.externalSecrets.store }} }
+  target: { name: {{ .Values.alerting.slackSecret }} }
+  data:
+    - { secretKey: webhook_url, remoteRef: { key: lap/{{ .Values.env }}/slack, property: webhook_url } }
+    - { secretKey: signing_secret, remoteRef: { key: lap/{{ .Values.env }}/slack, property: signing_secret } }
+{{- end }}

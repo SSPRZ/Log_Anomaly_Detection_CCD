@@ -1,0 +1,12 @@
+env: staging
+image: { tag: "staging" }   # bumped by Argo CD Image Updater
+kafka: { replicas: 1, controllers: 1, storage: 50Gi }
+clickhouse: { replicas: 1, storage: 100Gi }
+objectStore: { endpoint: http://minio.minio:9000 }
+stages:
+  parse-enrich:     { replicas: 1, maxReplicas: 4,  lagThreshold: 5000, topic: logs.raw,         cpu: "500m", memory: 1Gi }
+  window-features:  { replicas: 1, maxReplicas: 1,  lagThreshold: 0,    topic: logs.parsed,      cpu: "1",    memory: 2Gi, stateful: true }
+  anomaly-scorer:   { replicas: 1, maxReplicas: 2,  lagThreshold: 200,  topic: logs.features,    cpu: "500m", memory: 1Gi }
+  alert-router:     { replicas: 1, maxReplicas: 1,  lagThreshold: 0,    topic: anomalies.scores, cpu: "250m", memory: 512Mi, egress: true }
+  clickhouse-sink:  { replicas: 1, maxReplicas: 2,  lagThreshold: 20000, topic: logs.parsed,     cpu: "500m", memory: 1Gi }
+flink: { enabled: false }

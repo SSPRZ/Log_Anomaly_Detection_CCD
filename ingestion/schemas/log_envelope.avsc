@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "LogEnvelope",
+  "namespace": "io.lap.logs",
+  "doc": "Common log envelope produced by the shared logging library (Section 4.1). BACKWARD compatible changes only.",
+  "fields": [
+    {"name": "ts", "type": "string", "doc": "ISO-8601 UTC timestamp, e.g. 2026-10-09T05:41:12.318Z"},
+    {"name": "service", "type": "string"},
+    {"name": "env", "type": "string"},
+    {"name": "level", "type": {"type": "enum", "name": "Level", "symbols": ["TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"], "default": "INFO"}},
+    {"name": "host", "type": ["null", "string"], "default": null},
+    {"name": "trace_id", "type": ["null", "string"], "default": null},
+    {"name": "msg", "type": "string"},
+    {"name": "attrs", "type": ["null", {"type": "map", "values": ["null", "string", "long", "double", "boolean"]}], "default": null}
+  ]
+}

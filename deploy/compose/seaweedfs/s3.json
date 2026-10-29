@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "lap",
+      "credentials": [ { "accessKey": "lap", "secretKey": "lap-s3-secret" } ],
+      "actions": [ "Admin", "Read", "Write", "List", "Tagging" ]
+    }
+  ]
+}

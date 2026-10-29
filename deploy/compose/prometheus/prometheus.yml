@@ -1,0 +1,25 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files: [ /etc/prometheus/rules.yml ]
+
+alerting:
+  alertmanagers:
+    - static_configs: [ { targets: [ "alertmanager:9093" ] } ]
+
+scrape_configs:
+  - job_name: lap-stages
+    static_configs:
+      - targets:
+          - parse-enrich:9108
+          - window-features:9108
+          - anomaly-scorer:9108
+          - alert-router:9108
+          - clickhouse-sink:9108
+          - s3-sink:9108
+  - job_name: fluent-bit
+    metrics_path: /api/v1/metrics/prometheus
+    static_configs: [ { targets: [ "fluent-bit:2020" ] } ]
+  - job_name: clickhouse
+    static_configs: [ { targets: [ "clickhouse:9363" ] } ]

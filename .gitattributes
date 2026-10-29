@@ -1,0 +1,5 @@
+* text=auto eol=lf
+*.sh text eol=lf
+*.parquet binary
+*.onnx binary
+*.bat text eol=crlf

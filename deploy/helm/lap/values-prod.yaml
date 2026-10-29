@@ -1,0 +1,9 @@
+# Changed only via pull request approved by a second engineer (Section 5.3, stage 6).
+env: prod
+image: { tag: "1.0.0" }
+kafka: { replicas: 3, controllers: 3, storage: 1Ti }
+clickhouse: { shards: 1, replicas: 2, storage: 2Ti }
+flink:
+  enabled: true
+  parallelism: 24
+  taskManager: { cpu: 4, memory: 8192m, replicas: 3, slots: 8 }

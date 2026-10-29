@@ -1,0 +1,12 @@
+-r requirements.txt
+# training / UI / tooling (not needed by the streaming stages)
+mlflow==2.17.2
+streamlit==1.56.0
+plotly==6.6.0
+pytest==9.1.1
+httpx==0.28.1
+ruff==0.6.9
+mypy==1.11.2
+pandera==0.20.4
+# T3 LSTM backend (CPU wheel: pip install torch --index-url https://download.pytorch.org/whl/cpu)
+# torch==2.14.1

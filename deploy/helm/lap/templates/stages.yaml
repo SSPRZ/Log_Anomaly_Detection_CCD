@@ -1,0 +1,93 @@
+{{- range $name, $s := .Values.stages }}
+{{- if not (and $.Values.flink.enabled (or (eq $name "parse-enrich") (eq $name "window-features"))) }}
+---
+apiVersion: apps/v1
+kind: {{ if $s.stateful }}StatefulSet{{ else }}Deployment{{ end }}
+metadata:
+  name: {{ $name }}
+  labels: {{- include "lap.labels" $ | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+spec:
+  replicas: {{ $s.replicas }}
+  {{- if $s.stateful }}
+  serviceName: {{ $name }}
+  {{- end }}
+  selector: { matchLabels: { app.kubernetes.io/name: {{ $name }} } }
+  template:
+    metadata:
+      labels: {{- include "lap.labels" $ | nindent 8 }}
+        app.kubernetes.io/name: {{ $name }}
+        lap/egress: {{ $s.egress | default false | quote }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9108"
+    spec:
+      serviceAccountName: lap
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, fsGroup: 65532, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: {{ $name }}
+          image: {{ include "lap.image" $ }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          args: [ "stage", {{ $name | quote }} ]
+          env: {{- include "lap.env" $ | nindent 12 }}
+            {{- if $s.egress }}
+            - name: SLACK_WEBHOOK_URL
+              valueFrom: { secretKeyRef: { name: {{ $.Values.alerting.slackSecret }}, key: webhook_url } }
+            - name: PAGERDUTY_ROUTING_KEY
+              valueFrom: { secretKeyRef: { name: {{ $.Values.alerting.pagerdutySecret }}, key: routing_key } }
+            {{- end }}
+          ports: [ { name: metrics, containerPort: 9108 } ]
+          resources:
+            requests: { cpu: {{ $s.cpu | quote }}, memory: {{ $s.memory }} }
+            limits: { memory: {{ $s.memory }} }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ ALL ] } }
+          livenessProbe: { tcpSocket: { port: metrics }, initialDelaySeconds: 20, periodSeconds: 20 }
+          volumeMounts:
+            - { name: models, mountPath: /models }
+            - { name: tmp, mountPath: /tmp }
+            {{- if $s.stateful }}
+            - { name: checkpoints, mountPath: /app/data/checkpoints }
+            {{- end }}
+      volumes:
+        - name: models
+          persistentVolumeClaim: { claimName: lap-models }
+        - { name: tmp, emptyDir: {} }
+  {{- if $s.stateful }}
+  volumeClaimTemplates:
+    - metadata: { name: checkpoints }
+      spec: { accessModes: [ ReadWriteOnce ], resources: { requests: { storage: 10Gi } } }
+  {{- end }}
+{{- if gt (int $s.maxReplicas) (int $s.replicas) }}
+---
+# HPA on consumer lag (KEDA Kafka scaler), capped at the partition count
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ $name }}
+spec:
+  scaleTargetRef: { name: {{ $name }} }
+  minReplicaCount: {{ $s.replicas }}
+  maxReplicaCount: {{ $s.maxReplicas }}
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: {{ $.Values.kafka.bootstrap }}
+        consumerGroup: {{ $name }}
+        topic: {{ $s.topic }}
+        lagThreshold: {{ $s.lagThreshold | quote }}
+        tls: enable
+      authenticationRef: { name: lap-kafka-tls }
+{{- end }}
+{{- end }}
+{{- end }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: lap-models }
+spec:
+  accessModes: [ ReadWriteMany ]
+  resources: { requests: { storage: 20Gi } }
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: lap }

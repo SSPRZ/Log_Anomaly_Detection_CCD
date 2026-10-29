@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: lap-staging
+  namespace: argocd
+  annotations:
+    # Argo CD Image Updater bumps staging automatically (Section 5.3, stage 5)
+    argocd-image-updater.argoproj.io/image-list: lap=ghcr.io/example/lap
+    argocd-image-updater.argoproj.io/lap.update-strategy: digest
+    argocd-image-updater.argoproj.io/lap.allow-tags: regexp:^staging$
+    argocd-image-updater.argoproj.io/write-back-method: git
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/example/log-anomaly-platform.git
+    targetRevision: main
+    path: deploy/helm/lap
+    helm: { valueFiles: [ values.yaml, values-staging.yaml ] }
+  destination: { server: https://kubernetes.default.svc, namespace: lap-staging }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [ CreateNamespace=true ]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: lap-prod
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/example/log-anomaly-platform.git
+    targetRevision: main
+    path: deploy/helm/lap
+    helm: { valueFiles: [ values.yaml, values-prod.yaml ] }   # changes only via reviewed PR
+  destination: { server: https://kubernetes.default.svc, namespace: lap }
+  syncPolicy:
+    automated: { prune: false, selfHeal: true }
+    syncOptions: [ CreateNamespace=true ]

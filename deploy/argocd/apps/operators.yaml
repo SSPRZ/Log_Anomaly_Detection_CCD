@@ -1,0 +1,74 @@
+# Stateful operators (sync wave -1 so CRDs exist before the platform chart).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: strimzi
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "-1" }
+spec:
+  project: default
+  source: { repoURL: https://strimzi.io/charts/, chart: strimzi-kafka-operator, targetRevision: 0.45.0,
+            helm: { values: "watchAnyNamespace: true" } }
+  destination: { server: https://kubernetes.default.svc, namespace: kafka }
+  syncPolicy: { automated: { prune: true, selfHeal: true }, syncOptions: [ CreateNamespace=true, ServerSideApply=true ] }
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: flink-operator
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "-1" }
+spec:
+  project: default
+  source: { repoURL: https://downloads.apache.org/flink/flink-kubernetes-operator-1.10.0/, chart: flink-kubernetes-operator,
+            targetRevision: 1.10.0 }
+  destination: { server: https://kubernetes.default.svc, namespace: flink }
+  syncPolicy: { automated: { prune: true, selfHeal: true }, syncOptions: [ CreateNamespace=true ] }
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: clickhouse-operator
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "-1" }
+spec:
+  project: default
+  source: { repoURL: https://docs.altinity.com/clickhouse-operator/, chart: altinity-clickhouse-operator, targetRevision: 0.24.0 }
+  destination: { server: https://kubernetes.default.svc, namespace: clickhouse }
+  syncPolicy: { automated: { prune: true, selfHeal: true }, syncOptions: [ CreateNamespace=true ] }
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "-1" }
+spec:
+  project: default
+  source: { repoURL: https://prometheus-community.github.io/helm-charts, chart: kube-prometheus-stack, targetRevision: 65.1.1 }
+  destination: { server: https://kubernetes.default.svc, namespace: monitoring }
+  syncPolicy: { automated: { prune: true, selfHeal: true }, syncOptions: [ CreateNamespace=true, ServerSideApply=true ] }
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-secrets
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "-1" }
+spec:
+  project: default
+  source: { repoURL: https://charts.external-secrets.io, chart: external-secrets, targetRevision: 0.10.4 }
+  destination: { server: https://kubernetes.default.svc, namespace: external-secrets }
+  syncPolicy: { automated: { prune: true, selfHeal: true }, syncOptions: [ CreateNamespace=true ] }
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: keda
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "-1" }
+spec:
+  project: default
+  source: { repoURL: https://kedacore.github.io/charts, chart: keda, targetRevision: 2.15.1 }
+  destination: { server: https://kubernetes.default.svc, namespace: keda }
+  syncPolicy: { automated: { prune: true, selfHeal: true }, syncOptions: [ CreateNamespace=true ] }

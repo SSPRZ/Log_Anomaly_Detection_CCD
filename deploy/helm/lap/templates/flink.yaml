@@ -1,0 +1,44 @@
+{{- if .Values.flink.enabled }}
+# Flink Kubernetes Operator: parse-enrich (PyFlink) and window-features (Flink SQL),
+# checkpoints every 30 s to object storage, exactly-once Kafka sinks, autoscaler on backpressure.
+{{- range $job := list "parse-enrich" "window-features" }}
+---
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkDeployment
+metadata:
+  name: {{ $job }}
+spec:
+  image: {{ include "lap.image" $ }}-flink
+  flinkVersion: {{ $.Values.flink.version }}
+  serviceAccount: flink
+  flinkConfiguration:
+    taskmanager.numberOfTaskSlots: {{ $.Values.flink.taskManager.slots | quote }}
+    execution.checkpointing.interval: 30s
+    execution.checkpointing.mode: EXACTLY_ONCE
+    state.backend.type: rocksdb
+    state.checkpoints.dir: {{ $.Values.objectStore.checkpointsUri }}/{{ $job }}
+    state.savepoints.dir: {{ $.Values.objectStore.checkpointsUri }}/{{ $job }}-savepoints
+    job.autoscaler.enabled: "true"
+    job.autoscaler.target.utilization: "0.6"
+    job.autoscaler.metrics.window: 5m
+    pipeline.max-parallelism: "24"
+    kubernetes.operator.job.upgrade.last-state-fallback.enabled: "true"
+  jobManager:
+    resource: { cpu: {{ $.Values.flink.jobManager.cpu }}, memory: {{ $.Values.flink.jobManager.memory | quote }} }
+  taskManager:
+    replicas: {{ $.Values.flink.taskManager.replicas }}
+    resource: { cpu: {{ $.Values.flink.taskManager.cpu }}, memory: {{ $.Values.flink.taskManager.memory | quote }} }
+  job:
+    {{- if eq $job "parse-enrich" }}
+    jarURI: local:///opt/flink/opt/flink-python.jar
+    entryClass: org.apache.flink.client.python.PythonDriver
+    args: [ "-py", "/app/stream/flink/parse_enrich_job.py", "-pyfs", "/app", "--bootstrap", {{ $.Values.kafka.bootstrap | quote }} ]
+    {{- else }}
+    jarURI: local:///opt/flink/opt/flink-sql-runner.jar
+    args: [ "/app/stream/flink/window_features.sql" ]
+    {{- end }}
+    parallelism: {{ $.Values.flink.parallelism }}
+    upgradeMode: last-state
+    state: running
+{{- end }}
+{{- end }}

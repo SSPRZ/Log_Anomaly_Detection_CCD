@@ -1,0 +1,13 @@
+# Simulated e-commerce system (Section 9.1). Also consumed by the alert-router:
+# tier drives severity (P1 needs a tier-1 service), calls drive incident grouping.
+services:
+  gateway:       { tier: 1, team: edge,     hosts: 3, slack_channel: "#alerts-edge" }
+  orders:        { tier: 1, team: commerce, hosts: 3, slack_channel: "#alerts-commerce" }
+  payments:      { tier: 1, team: payments, hosts: 2, slack_channel: "#alerts-payments" }
+  inventory:     { tier: 2, team: commerce, hosts: 2, slack_channel: "#alerts-commerce" }
+  notifications: { tier: 3, team: growth,   hosts: 2, slack_channel: "#alerts-growth" }
+
+calls:
+  gateway: [orders, inventory]
+  orders: [inventory, payments, notifications]
+  payments: [bank-gateway]          # external dependency, does not log to us

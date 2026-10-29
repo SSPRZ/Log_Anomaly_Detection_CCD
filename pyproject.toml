@@ -1,0 +1,28 @@
+[project]
+name = "log-anomaly-platform"
+version = "1.0.0"
+description = "Distributed log anomaly detection: Kafka -> stream processing -> ML scoring -> explained alerts"
+requires-python = ">=3.10"
+authors = [{ name = "Pranshu Thakkar" }]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning", "ignore::UserWarning"]
+
+[tool.ruff]
+line-length = 130
+target-version = "py310"
+extend-exclude = [".venv", "data", "stream/flink"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E702", "E731", "B008", "UP038", "I001", "B905", "UP037", "UP035", "UP031"]
+
+[tool.mypy]
+ignore_missing_imports = true
+check_untyped_defs = false
+exclude = ["\\.venv", "data", "dashboard"]
+
+[tool.coverage.run]
+source = ["common", "stream", "detection", "alerting", "storage", "pipeline"]
